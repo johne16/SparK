@@ -17,6 +17,7 @@ from pprint import pformat
 
 import numpy as np
 import torch
+import yaml
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
@@ -89,7 +90,7 @@ class Trainer(DefaultTrainer):
                 for module_param_name, value in module.named_parameters(recurse=False):
                     if not value.requires_grad:
                         continue
-                    lrf = lr_factor_func(f"{module_name}.{module_param_name}", is_resnet50=is_resnet50, dec=cls.lr_decay_ratio, debug=True)
+                    lrf = lr_factor_func(f"{module_name}.{module_param_name}", is_resnet50=is_resnet50, dec=cls.lr_decay_ratio, depth=cfg.MODEL.RESNETS.DEPTH, debug=True)
                     dbg[lrf].append(f"{module_name}.{module_param_name}")
             for k in sorted(dbg.keys()):
                 print(f'[{k}] {sorted(dbg[k])}')
@@ -101,7 +102,7 @@ class Trainer(DefaultTrainer):
             weight_decay_norm=cfg.SOLVER.WEIGHT_DECAY_NORM,
             bias_lr_factor=cfg.SOLVER.BIAS_LR_FACTOR,
             weight_decay_bias=cfg.SOLVER.WEIGHT_DECAY_BIAS,
-            lr_factor_func=partial(lr_factor_func, is_resnet50=is_resnet50, dec=cls.lr_decay_ratio, debug=False)
+            lr_factor_func=partial(lr_factor_func, is_resnet50=is_resnet50, dec=cls.lr_decay_ratio, depth=cfg.MODEL.RESNETS.DEPTH, debug=False)
         )
         
         opt_clz = {
@@ -141,6 +142,9 @@ def setup(args):
     # [modification] we add these two new keys
     cfg.SOLVER.OPTIMIZER, cfg.SOLVER.LR_DECAY = 'sgd', 1.0  # by default using SGD and no lr_decay
     cfg.merge_from_file(args.config_file)
+    with open(os.path.splitext(args.config_file)[0] + "_runs.yaml") as f:
+        run = yaml.safe_load(f)[os.environ["RUN"]]
+    cfg.merge_from_list(["MODEL.WEIGHTS", run["init_checkpoint"], "SOLVER.LR_DECAY", run["lr_decay_rate"], "SEED", run["seed"]])
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)

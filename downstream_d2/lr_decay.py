@@ -5,11 +5,19 @@ import copy
 from detectron2.solver.build import reduce_param_groups
 
 
-def lr_factor_func(para_name: str, is_resnet50, dec: float, debug=False) -> float:
+def lr_factor_func(para_name: str, is_resnet50, dec: float, depth: int, debug=False) -> float:
     if dec == 0:
         dec = 1.
     
-    N = 5 if is_resnet50 else 11
+    # N = 5 if is_resnet50 else 11
+    depth_map = {
+        18: 4,
+        50: 5,
+        101: 11,
+    }
+    if depth not in depth_map.keys():
+        raise ValueError("acceptable values for depth are 18, 50, 101")
+    N = depth_map[depth]
     if '.stem.' in para_name:
         layer_id = 0
     elif '.res' in para_name:
