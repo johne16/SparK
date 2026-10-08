@@ -4,6 +4,8 @@ MODEL:
   RESNETS:
     DEPTH: 18
     RES2_OUT_CHANNELS: 64
+  ROI_HEADS:
+    NUM_CLASSES: 9
 DATASETS:
   COCO_DIR: "../../datasets/coco"
   TRAIN: ("coco_2017_train_subset",)
