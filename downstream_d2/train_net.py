@@ -22,6 +22,7 @@ import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
+from detectron2.data.datasets import register_coco_instances
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, hooks, launch, PeriodicWriter
 from detectron2.evaluation import (
     CityscapesInstanceEvaluator,
@@ -141,12 +142,25 @@ def setup(args):
     cfg = get_cfg()
     # [modification] we add these two new keys
     cfg.SOLVER.OPTIMIZER, cfg.SOLVER.LR_DECAY = 'sgd', 1.0  # by default using SGD and no lr_decay
+    cfg.DATASETS.COCO_DIR = ''
     cfg.merge_from_file(args.config_file)
     with open(os.path.splitext(args.config_file)[0] + "_runs.yaml") as f:
         run = yaml.safe_load(f)[os.environ["RUN"]]
     cfg.merge_from_list(["MODEL.WEIGHTS", run["init_checkpoint"], "SOLVER.LR_DECAY", run["lr_decay_rate"], "SEED", run["seed"]])
     cfg.merge_from_list(args.opts)
     cfg.freeze()
+    register_coco_instances(
+        "coco_2017_train_subset",
+        {},
+        os.path.join(cfg.DATASETS.COCO_DIR, "annotations/instances_train2017.json"),
+        os.path.join(cfg.DATASETS.COCO_DIR, "train/data"),
+    )
+    register_coco_instances(
+        "coco_2017_val_subset",
+        {},
+        os.path.join(cfg.DATASETS.COCO_DIR, "annotations/instances_val2017.json"),
+        os.path.join(cfg.DATASETS.COCO_DIR, "validation/data"),
+    )
     default_setup(cfg, args)
     return cfg
 

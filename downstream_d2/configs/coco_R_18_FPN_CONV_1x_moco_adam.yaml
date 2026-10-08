@@ -4,5 +4,9 @@ MODEL:
   RESNETS:
     DEPTH: 18
     RES2_OUT_CHANNELS: 64
+DATASETS:
+  COCO_DIR: "../../datasets/coco"
+  TRAIN: ("coco_2017_train_subset",)
+  TEST: ("coco_2017_val_subset",)
 SOLVER:
   LR_DECAY: 1.0
