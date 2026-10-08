@@ -21,8 +21,9 @@ import yaml
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
-from detectron2.data import MetadataCatalog
+from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.data.datasets import register_coco_instances
+from detectron2.data.datasets.labeled_fraction import register_coco_instances_labeled_fraction
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, hooks, launch, PeriodicWriter
 from detectron2.evaluation import (
     CityscapesInstanceEvaluator,
@@ -143,17 +144,18 @@ def setup(args):
     # [modification] we add these two new keys
     cfg.SOLVER.OPTIMIZER, cfg.SOLVER.LR_DECAY = 'sgd', 1.0  # by default using SGD and no lr_decay
     cfg.DATASETS.COCO_DIR = ''
+    cfg.SOLVER.NUM_EPOCHS = 0
     cfg.merge_from_file(args.config_file)
     with open(os.path.splitext(args.config_file)[0] + "_runs.yaml") as f:
         run = yaml.safe_load(f)[os.environ["RUN"]]
     cfg.merge_from_list(["MODEL.WEIGHTS", run["init_checkpoint"], "SOLVER.LR_DECAY", run["lr_decay_rate"], "SEED", run["seed"]])
     cfg.merge_from_list(args.opts)
-    cfg.freeze()
-    register_coco_instances(
+    register_coco_instances_labeled_fraction(
         "coco_2017_train_subset",
         {},
         os.path.join(cfg.DATASETS.COCO_DIR, "annotations/instances_train2017.json"),
         os.path.join(cfg.DATASETS.COCO_DIR, "train/data"),
+        run["labeled_fraction"],
     )
     register_coco_instances(
         "coco_2017_val_subset",
@@ -161,6 +163,11 @@ def setup(args):
         os.path.join(cfg.DATASETS.COCO_DIR, "annotations/instances_val2017.json"),
         os.path.join(cfg.DATASETS.COCO_DIR, "validation/data"),
     )
+    # max_iter iters = num_epochs ep * num_images images/ep / ims_per_batch images/iter
+    num_images = len(DatasetCatalog.get("coco_2017_train_subset"))
+    cfg.SOLVER.MAX_ITER = round(cfg.SOLVER.NUM_EPOCHS * num_images / cfg.SOLVER.IMS_PER_BATCH)
+    cfg.SOLVER.STEPS = (round(cfg.SOLVER.MAX_ITER * 2 / 3), round(cfg.SOLVER.MAX_ITER * 8 / 9))
+    cfg.freeze()
     default_setup(cfg, args)
     return cfg
 
@@ -247,9 +254,7 @@ class LogHook(hooks.HookBase):
     def update_and_write_to_local_log(self):
         stat = self.trainer.storage.latest()
         self.log['boxAP'], self.log['bAP50'], self.log['bAP75'] = stat['bbox/AP'][0], stat['bbox/AP50'][0], stat['bbox/AP75'][0]
-        self.log['mskAP'], self.log['mAP50'], self.log['mAP75'] = stat['segm/AP'][0], stat['segm/AP50'][0], stat['segm/AP75'][0]
         self.log['bAP-l'], self.log['bAP-m'], self.log['bAP-s'] = stat['bbox/APl'][0], stat['bbox/APm'][0], stat['bbox/APs'][0]
-        self.log['mAP-l'], self.log['mAP-m'], self.log['mAP-s'] = stat['segm/APl'][0], stat['segm/APm'][0], stat['segm/APs'][0]
         all_ap = sorted([(v[0], k.split('AP-')[-1].strip()) for k, v in stat.items() if k.startswith('bbox/AP-')])
         all_ap = [tu[1] for tu in all_ap]
         self.log['easy'] = ' | '.join(all_ap[-7:])
@@ -276,15 +281,14 @@ class LogHook(hooks.HookBase):
     
     def after_train(self):
         self.update_and_write_to_local_log()
-        last_boxAP, last_mskAP = round(self.log['boxAP'], 3), round(self.log['mskAP'], 3)
+        last_boxAP = round(self.log['boxAP'], 3)
         self.__write_to_log_file({
             'rema': '-', 'fini': time.strftime("%m-%d %H:%M", time.localtime(time.time() - 120)),
             'last_boxAP': last_boxAP,
-            'last_mskAP': last_mskAP,
         })
         time.sleep(5)
         if self.is_master:
-            print(f'\n[finished] ========== last_boxAP={last_boxAP}, last_mskAP={last_mskAP} ==========\n')
+            print(f'\n[finished] ========== last_boxAP={last_boxAP} ==========\n')
 
 
 if __name__ == "__main__":

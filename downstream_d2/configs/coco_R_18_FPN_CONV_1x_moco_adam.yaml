@@ -11,4 +11,9 @@ DATASETS:
   TRAIN: ("coco_2017_train_subset",)
   TEST: ("coco_2017_val_subset",)
 SOLVER:
+  NUM_EPOCHS: 12
+  WARMUP_ITERS: 500
+  CHECKPOINT_PERIOD: 500
   LR_DECAY: 1.0
+TEST:
+  EVAL_PERIOD: 500
