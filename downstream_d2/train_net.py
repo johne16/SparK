@@ -148,7 +148,7 @@ def setup(args):
     cfg.merge_from_file(args.config_file)
     with open(os.path.splitext(args.config_file)[0] + "_runs.yaml") as f:
         run = yaml.safe_load(f)[os.environ["RUN"]]
-    cfg.merge_from_list(["MODEL.WEIGHTS", run["init_checkpoint"], "SOLVER.LR_DECAY", run["lr_decay_rate"], "SEED", run["seed"]])
+    cfg.merge_from_list(["MODEL.WEIGHTS", run["init_checkpoint"], "SOLVER.LR_DECAY", run["lr_decay_rate"], "SEED", run["seed"], "OUTPUT_DIR", os.path.join(cfg.OUTPUT_DIR, os.environ["RUN"])])
     cfg.merge_from_list(args.opts)
     register_coco_instances_labeled_fraction(
         "coco_2017_train_subset",
@@ -213,7 +213,7 @@ def main(args):
     trainer.resume_or_load(resume=args.resume)
     for h in trainer._hooks:
         if isinstance(h, PeriodicWriter):
-            h._period = 1000  # [modification] less logging
+            h._period = cfg.TEST.EVAL_PERIOD // 4  # [modification] less logging
     
     # [modification] we add some hooks for logging
     is_local_master = comm.get_rank() % args.num_gpus == 0

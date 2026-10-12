@@ -30,7 +30,7 @@ class Args(Tap):
     sbn: bool = True
     
     # data hyperparameters
-    bs: int = 4096
+    bs: int = 256
     dataloader_workers: int = 8
     
     # pre-training hyperparameters
