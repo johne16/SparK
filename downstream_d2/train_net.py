@@ -222,6 +222,7 @@ def main(args):
     ex_hooks = [
         hooks.EvalHook(0, lambda: trainer.test_with_TTA(cfg, trainer.model)) if cfg.TEST.AUG.ENABLED else None,
         LogHook(cfg.TEST.EVAL_PERIOD, args.config_file, cfg.OUTPUT_DIR, is_local_master) if comm.is_main_process() else None,
+        hooks.ElapsedTimeWriter(os.path.join(cfg.OUTPUT_DIR, 'timing.json'), cfg.TEST.EVAL_PERIOD // 4) if comm.is_main_process() else None,
     ]
     trainer.register_hooks(ex_hooks)
     if comm.is_main_process():

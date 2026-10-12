@@ -5,7 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import datetime
+import json
 import math
+import os
 import sys
 import time
 from functools import partial
@@ -115,6 +117,10 @@ def main_pt():
             args.remain_time, args.finish_time = str(remain_time), str(finish_time)
             args.last_loss = last_loss
             args.log_epoch()
+            if dist.is_local_master():
+                with open(os.path.join(args.exp_dir, 'timing.json'), 'w') as fp:
+                    json.dump({'unit': 'epoch', 'completed': ep + 1 - ep_start, 'total': args.ep, 'elapsed_seconds': time.time() - pt_start_time}, fp)
+                    fp.write('\n')
             
             tb_lg.update(min_loss=min_loss, head='train', step=ep)
             tb_lg.update(rest_hours=round(remain_secs/60/60, 2), head='z_burnout', step=ep)
